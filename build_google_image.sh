@@ -55,7 +55,7 @@ bar -n ${WRKDIR}/${VERSION}/kernel.txz | tar -xzf -
 
 cp /etc/resolv.conf etc/resolv.conf
 
-yes | chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg install sudo google-cloud-sdk google-daemon bsdinfo bsdstats
+yes | chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg install sudo google-cloud-sdk google-daemon
 chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg clean -ya
 chroot . usr/sbin/pw lock root
 
@@ -105,12 +105,6 @@ restrict -6 default kod nomodify notrap nopeer noquery
 restrict 127.0.0.1
 restrict -6 ::1
 restrict 127.127.1.0
-EOF
-
-cat << EOF >> etc/profile
-if [ ! -f ~/.hushlogin ]; then
-  bsdinfo
-fi
 EOF
 
 cat << EOF >> etc/syslog.conf
