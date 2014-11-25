@@ -80,7 +80,6 @@ ifconfig_vtnet0="SYNCDHCP mtu 1460"
 ntpd_sync_on_start="YES"
 ntpd_enable="YES"
 sshd_enable="YES"
-bsdstats_enable="YES"
 google_accounts_manager_enable="YES"
 EOF
 
