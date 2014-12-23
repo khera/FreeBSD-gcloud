@@ -1,7 +1,6 @@
 #!/bin/sh
 
 set -e
-set -x
 
 # Script to create images for use in Google Cloud Compute
 
@@ -18,25 +17,48 @@ SWAPSIZE=1G
 # which bucket to upload to
 MYBUCKET=swills-test-bucket
 TS=`env TZ=UTC date +%Y%m%d%H%M%S`
-IMAGENAME=FreeBSD-${VERSION}-amd64-${TS}
-BUCKETFILE=${IMAGENAME}.tar.gz
+IMAGENAME=`echo FreeBSD-${VERSION}-amd64-${TS} | tr '[A-Z]' '[a-z]' | sed -e 's/\.//g'`
+BUCKETFILE=FreeBSD-${VERSION}-amd64-${TS}.tar.gz
 
 TMPFILE=FreeBSD-${VERSION}-amd64-gcloud-image-${TS}.raw
+
+# which OS components to install, base doc games kernel lib32 ports src
+
+COMPONENTS="base kernel"
 
 ###############################
 
 BASEDIR=$(dirname $0)
 WRKDIR=${PWD}
 
-# fetch base and kernel for this version
+# ensure commands we need are installed
+
+ensureinstalled() {
+  set +e
+  hash $1 > /dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    set -e
+    /usr/bin/env ASSUME_ALWAYS_YES=yes pkg install -y $2
+  fi
+  set -e
+}
+
+fetchcomp() {
+  if [ ! -f ${1}.txz ]; then
+    fetch http://ftp.freebsd.org/pub/FreeBSD/releases/amd64/amd64/${VERSION}/${1}.txz
+  fi
+}
+
+ensureinstalled bar bar
+ensureinstalled gcloud google-cloud-sdk
+
+# fetch OS components
 mkdir -p ${VERSION}
 cd ${VERSION}
-if [ ! -f base.txz ]; then
-  fetch http://ftp.freebsd.org/pub/FreeBSD/releases/amd64/amd64/${VERSION}/base.txz
-fi
-if [ ! -f kernel.txz ]; then
-  fetch http://ftp.freebsd.org/pub/FreeBSD/releases/amd64/amd64/${VERSION}/kernel.txz
-fi
+
+for comp in ${COMPONENTS} ; do
+  fetchcomp ${comp}
+done
 
 cd ${WRKDIR}
 
@@ -50,12 +72,14 @@ mkdir -p /mnt/g/new
 mount /dev/${MD_UNIT} /mnt/g/new
 
 cd /mnt/g/new
-bar -n ${WRKDIR}/${VERSION}/base.txz   | tar -xzf -
-bar -n ${WRKDIR}/${VERSION}/kernel.txz | tar -xzf -
+for comp in ${COMPONENTS} ; do
+  bar -n ${WRKDIR}/${VERSION}/${comp}.txz   | tar -xzf -
+done
 
+# temporarily use the local systems resolv.conf so packages can be installed
 cp /etc/resolv.conf etc/resolv.conf
 
-yes | chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg install sudo google-cloud-sdk google-daemon
+yes | chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg install sudo google-daemon firstboot-freebsd-update firstboot-pkgs panicmail
 chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg clean -ya
 chroot . usr/sbin/pw lock root
 
@@ -81,14 +105,24 @@ ntpd_sync_on_start="YES"
 ntpd_enable="YES"
 sshd_enable="YES"
 google_accounts_manager_enable="YES"
+firstboot_freebsd_update_enable="YES"
+firstboot_pkgs_enable="YES"
+firstboot_pkgs_list="google-cloud-sdk"
+panicmail_autosubmit="YES"
+panicmail_enable="YES"
+panicmail_sendto="FreeBSD Panic Reporting <swills-panicmail@mouf.net>"
 EOF
 
 cat << EOF > boot/loader.conf
-console="comconsole"
-hw.memtest.tests="0"
-kern.timecounter.hardware=ACPI-safe
-autoboot-delay="0"
+autoboot_delay="-1"
+beastie_disable="YES"
 loader_logo="none"
+hw.memtest.tests="0"
+console="comconsole"
+hw.vtnet.mq_disable=1
+kern.timecounter.hardware=ACPI-safe
+aesni_load="YES"
+nvme_load="YES"
 EOF
 
 cat << EOF >> etc/hosts
@@ -129,10 +163,14 @@ net.inet.ip.redirect=0
 net.inet.tcp.blackhole=2
 net.inet.udp.blackhole=1
 kern.ipc.somaxconn=1024
+debug.trace_on_panic=1
+debug.debugger_on_panic=0
 EOF
 
-sync
-sync
+sed -E -i '' 's/^([^#].*[[:space:]])on/\1off/' etc/ttys
+
+# disabled until I can figure out why the reboot for updates is hanging
+#touch ./firstboot
 
 cp boot/pmbr ${WRKDIR}
 cp boot/gptboot ${WRKDIR}
@@ -143,19 +181,15 @@ umount /mnt/g/new
 
 mdconfig -d -u ${MD_UNIT}
 
-sync
-sleep 5
-sync
-
 mkimg -s gpt -b pmbr \
         -p freebsd-boot/bootfs:=gptboot \
         -p freebsd-swap/swapfs::${SWAPSIZE} \
         -p freebsd-ufs/rootfs:=${TMPFILE} \
         -o disk.raw
-sync
 
-gtar -Szcf ${BUCKETFILE} disk.raw
+tar --format=gnutar -Szcf ${BUCKETFILE} disk.raw
 rm ${TMPFILE} disk.raw pmbr gptboot
 
-gsutil cp FreeBSD-${VERSION}-amd64-${TS}.tar.gz gs://${MYBUCKET}
-gcutil addimage ${IMAGENAME} gs://${MYBUCKET}/${BUCKETFILE}
+echo gcloud auth login
+echo gsutil cp ${BUCKETFILE} gs://${MYBUCKET}
+echo gcutil addimage ${IMAGENAME} gs://${MYBUCKET}/${BUCKETFILE}
