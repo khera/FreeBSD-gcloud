@@ -9,4 +9,5 @@ Here's my script to create Google Cloud images for FreeBSD.
 
   It will install these if they are not already installed
 
-* You should login to GCloud before running
+* Tweak settings to taste, it will build an image then give you the commands to
+  run to upload it to GCE and create an image
