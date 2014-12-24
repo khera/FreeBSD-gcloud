@@ -105,7 +105,8 @@ ntpd_sync_on_start="YES"
 ntpd_enable="YES"
 sshd_enable="YES"
 google_accounts_manager_enable="YES"
-firstboot_freebsd_update_enable="YES"
+#disabled until I can figure out why the reboot for updates is hanging
+#firstboot_freebsd_update_enable="YES"
 firstboot_pkgs_enable="YES"
 firstboot_pkgs_list="google-cloud-sdk"
 panicmail_autosubmit="YES"
@@ -169,8 +170,7 @@ EOF
 
 sed -E -i '' 's/^([^#].*[[:space:]])on/\1off/' etc/ttys
 
-# disabled until I can figure out why the reboot for updates is hanging
-#touch ./firstboot
+touch ./firstboot
 
 cp boot/pmbr ${WRKDIR}
 cp boot/gptboot ${WRKDIR}
