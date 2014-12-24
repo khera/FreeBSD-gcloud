@@ -79,7 +79,8 @@ done
 # temporarily use the local systems resolv.conf so packages can be installed
 cp /etc/resolv.conf etc/resolv.conf
 
-yes | chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg install sudo google-daemon firstboot-freebsd-update firstboot-pkgs panicmail
+yes | chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg install sudo \
+	google-daemon firstboot-freebsd-update firstboot-pkgs panicmail
 chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg clean -ya
 chroot . usr/sbin/pw lock root
 
