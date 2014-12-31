@@ -64,17 +64,6 @@ cleanup() {
   exit 1
 }
 
-# ensure commands we need are installed
-ensureinstalled() {
-  set +e
-  hash $1 >/dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    set -e
-    /usr/bin/env ASSUME_ALWAYS_YES=yes pkg install -qy $2 >/dev/null 2>&1
-  fi
-  set -e
-}
-
 # fetch OS components
 build_mirror() {
   cd ${WRKDIR}
@@ -247,8 +236,6 @@ trap cleanup SIGHUP SIGINT SIGTERM EXIT
 
 cd ${WRKDIR}
 
-echo "Installing necessary packages"
-ensureinstalled gcloud google-cloud-sdk
 echo "Building mirror of OS components"
 build_mirror
 echo "Creating image"
