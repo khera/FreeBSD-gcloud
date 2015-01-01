@@ -25,8 +25,7 @@ NEWFS_OPTIONS="-U -j -t"
 COMPONENTS="base kernel"
 
 # package to install into the image
-BAKED_IN_PACKAGES="firstboot-freebsd-update firstboot-pkgs google-cloud-sdk google-daemon panicmail sudo"
-#BAKED_IN_PACKAGES+="firstboot-growfs google-startup-scripts"
+BAKED_IN_PACKAGES="firstboot-freebsd-update firstboot-pkgs google-cloud-sdk google-daemon panicmail sudo firstboot-growfs google-startup-scripts"
 
 # package to install at boot time
 FIRST_BOOT_PKGS="bsdinfo"
