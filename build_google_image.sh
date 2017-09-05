@@ -7,12 +7,11 @@
 # tweak these to taste, if you feel the need
 
 # release to use
-# 10.1 has been tested, others may not work
-VERSION=10.1-RELEASE
+VERSION=11.1-RELEASE
 
 # see truncate(1) for acceptable sizes
 # minimum size, image will grow at boot time to accomodate larger disks
-VMSIZE=10g
+VMSIZE=5g
 
 # size passed to mkimg(1)
 SWAPSIZE=1G
@@ -25,17 +24,14 @@ NEWFS_OPTIONS="-U -j -t"
 COMPONENTS="base kernel"
 
 # package to install into the image
-BAKED_IN_PACKAGES="firstboot-freebsd-update firstboot-pkgs google-cloud-sdk google-daemon panicmail sudo firstboot-growfs google-startup-scripts"
-
-# package to install at boot time
-FIRST_BOOT_PKGS="bsdinfo"
+BAKED_IN_PACKAGES="google-daemon sudo rsync firstboot-growfs google-startup-scripts"
 
 # which bucket to upload to
-MYBUCKET=swills-test-bucket
+MYBUCKET=vivek-test-bucket
 
 # probably don't need to change things below here
 
-TS=`env TZ=UTC date +%Y%m%d%H%M%S`
+TS=`date -u +%Y%m%d%H%M%S`
 IMAGENAME=`echo FreeBSD-${VERSION}-amd64-${TS} | tr '[A-Z]' '[a-z]' | sed -e 's/\.//g'`
 
 # filename for tar file in bucket
@@ -114,40 +110,32 @@ nameserver 8.8.8.8
 EOF
   
   cat << EOF > etc/fstab
-# Custom /etc/fstab for FreeBSD VM images
+# Custom /etc/fstab for FreeBSD Google Cloud VM images
 /dev/gpt/rootfs   /       ufs     rw      1       1
 /dev/gpt/swapfs   none    swap    sw      0       0
+# put /tmp into a ram disk
+tmpfs		  /tmp	  tmpfs	  rw,mode=1777	  0	0
 EOF
   
   cat << EOF > etc/rc.conf
-console="comconsole"
 dumpdev="AUTO"
 ifconfig_vtnet0="SYNCDHCP mtu 1460"
 ntpd_sync_on_start="YES"
 ntpd_enable="YES"
 sshd_enable="YES"
 google_accounts_manager_enable="YES"
-#disabled until I can figure out why the reboot for updates is hanging
-#firstboot_freebsd_update_enable="YES"
-firstboot_pkgs_enable="YES"
-firstboot_pkgs_list="${FIRST_BOOT_PKGS}"
-panicmail_autosubmit="YES"
-panicmail_enable="YES"
-panicmail_sendto="FreeBSD Panic Reporting <swills-panicmail@mouf.net>"
-firstboot_growfs_enable="YES"
 google_startup_enable="YES"
+firstboot_growfs_enable="YES"
 EOF
   
   cat << EOF > boot/loader.conf
-autoboot_delay="-1"
-beastie_disable="YES"
-loader_logo="none"
+autoboot_delay="2"
 hw.memtest.tests="0"
 console="comconsole"
 hw.vtnet.mq_disable=1
-kern.timecounter.hardware=ACPI-safe
 aesni_load="YES"
-nvme_load="YES"
+#nvme_load="YES"
+zfs_load="YES"
 EOF
   
   cat << EOF >> etc/hosts
@@ -157,16 +145,12 @@ EOF
   cat << EOF > etc/ntp.conf
 server metadata.google.internal iburst
 
-restrict default kod nomodify notrap nopeer noquery
-restrict -6 default kod nomodify notrap nopeer noquery
+restrict -6 default ignore
+restrict default ignore
 
-restrict 127.0.0.1
 restrict -6 ::1
+restrict 127.0.0.1
 restrict 127.127.1.0
-EOF
-  
-  cat << EOF >> etc/syslog.conf
-*.err;kern.warning;auth.notice;mail.crit                /dev/console
 EOF
   
   cat << EOF >> etc/ssh/sshd_config
@@ -174,22 +158,21 @@ ChallengeResponseAuthentication no
 X11Forwarding no
 AcceptEnv LANG
 Ciphers aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,aes128-cbc,3des-cbc
-AllowAgentForwarding no
+#AllowAgentForwarding no
 ClientAliveInterval 420
 EOF
   
-  cat << EOF >> etc/crontab
+  cat << EOF >> etc/cron.d/freebsd-update
 0	3	*	*	*	root	/usr/sbin/freebsd-update cron
 EOF
   
   cat << EOF >> etc/sysctl.conf
+kern.timecounter.hardware=ACPI-fast
 net.inet.icmp.drop_redirect=1
 net.inet.ip.redirect=0
 net.inet.tcp.blackhole=2
 net.inet.udp.blackhole=1
 kern.ipc.somaxconn=1024
-debug.trace_on_panic=1
-debug.debugger_on_panic=0
 EOF
   
   sed -E -i '' 's/^([^#].*[[:space:]])on/\1off/' etc/ttys
