@@ -24,7 +24,7 @@ NEWFS_OPTIONS="-U -j -t"
 COMPONENTS="base kernel"
 
 # package to install into the image
-BAKED_IN_PACKAGES="sysutils/py-google-compute-engine sudo rsync"
+BAKED_IN_PACKAGES="sysutils/py-google-compute-engine sudo"
 
 # which bucket to upload to
 MYBUCKET=kci-images
