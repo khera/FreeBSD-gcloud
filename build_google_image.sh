@@ -24,7 +24,7 @@ NEWFS_OPTIONS="-U -j -t"
 COMPONENTS="base kernel"
 
 # package to install into the image
-BAKED_IN_PACKAGES="google-cloud-sdk sysutils/py-google-compute-engine sudo rsync"
+BAKED_IN_PACKAGES="sysutils/py-google-compute-engine sudo rsync"
 
 # which bucket to upload to
 MYBUCKET=kci-images
@@ -249,4 +249,4 @@ echo "Now run:"
 echo
 echo gcloud auth login
 echo gsutil cp ${BUCKETFILE} gs://${MYBUCKET}
-echo gcloud compute images create ${IMAGENAME} --description="FreeBSD ${VERSION}" --family=${IMAGEFAMILY} --source-uri=https://storage.googleapis.com/${MYBUCKET}/${BUCKETFILE}
+echo gcloud compute images create ${IMAGENAME} --description="'FreeBSD ${VERSION}'" --family=${IMAGEFAMILY} --source-uri=https://storage.googleapis.com/${MYBUCKET}/${BUCKETFILE}
