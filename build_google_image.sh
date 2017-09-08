@@ -9,6 +9,10 @@
 # release to use
 VERSION=11.1-RELEASE
 
+# group the image with this name, so you can always get the latest
+# image for FreeBSD when installing using this name.
+IMAGEFAMILY=freebsd-11
+
 # see truncate(1) for acceptable sizes
 # minimum size, image will grow at boot time to accomodate larger disks
 VMSIZE=5g
@@ -33,7 +37,6 @@ MYBUCKET=kci-images
 
 TS=`date -u +%Y%m%d%H%M%S`
 IMAGENAME=`echo FreeBSD-${VERSION}-amd64-${TS} | tr '[A-Z]' '[a-z]' | sed -e 's/\.//g'`
-IMAGEFAMILY=`echo FreeBSD-${VERSION}-amd64 | tr '[A-Z]' '[a-z]' | sed -e 's/\.//g'`
 
 # filename for tar file in bucket
 BUCKETFILE=FreeBSD-${VERSION}-amd64-${TS}.tar.gz
