@@ -24,15 +24,16 @@ NEWFS_OPTIONS="-U -j -t"
 COMPONENTS="base kernel"
 
 # package to install into the image
-BAKED_IN_PACKAGES="google-daemon sudo rsync firstboot-growfs google-startup-scripts"
+BAKED_IN_PACKAGES="google-cloud-sdk sysutils/py-google-compute-engine sudo rsync"
 
 # which bucket to upload to
-MYBUCKET=vivek-test-bucket
+MYBUCKET=kci-images
 
 # probably don't need to change things below here
 
 TS=`date -u +%Y%m%d%H%M%S`
 IMAGENAME=`echo FreeBSD-${VERSION}-amd64-${TS} | tr '[A-Z]' '[a-z]' | sed -e 's/\.//g'`
+IMAGEFAMILY=`echo FreeBSD-${VERSION}-amd64 | tr '[A-Z]' '[a-z]' | sed -e 's/\.//g'`
 
 # filename for tar file in bucket
 BUCKETFILE=FreeBSD-${VERSION}-amd64-${TS}.tar.gz
@@ -95,18 +96,25 @@ setup_image() {
   cd ${TMPMOUNT}
   # temporarily use the local systems resolv.conf so packages can be installed
   cp /etc/resolv.conf etc/resolv.conf
-  
+
+  # temporarily use the "latest" package repo since py-google-compute-engine is not
+  # in current quarterly (2017-SEP-09)
+  sed -E -i .save 's/^(  url.*)quarterly/\1latest/' etc/pkg/FreeBSD.conf  
+
   yes | chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg install -qy ${BAKED_IN_PACKAGES} >/dev/null 2>&1
   
   chroot . usr/bin/env ASSUME_ALWAYS_YES=yes usr/sbin/pkg clean -qya >/dev/null 2>&1
   chroot . usr/sbin/pw lock root
   
   rm -rf var/db/pkg/repo*
-  
+
+  # restore the temporary package config
+  mv etc/pkg/FreeBSD.conf.save etc/pkg/FreeBSD.conf
+
+  # this will be overwritten by DHCP anyway.
   cat << EOF > etc/resolv.conf
 search google.internal
 nameserver 169.254.169.254
-nameserver 8.8.8.8
 EOF
   
   cat << EOF > etc/fstab
@@ -123,19 +131,28 @@ ifconfig_vtnet0="SYNCDHCP mtu 1460"
 ntpd_sync_on_start="YES"
 ntpd_enable="YES"
 sshd_enable="YES"
-google_accounts_manager_enable="YES"
+# growfs only runs on firstboot
+growfs_enable="YES"
+# google cloud daemons. these are required.
 google_startup_enable="YES"
-firstboot_growfs_enable="YES"
+google_accounts_daemon_enable="YES"
+google_clock_skew_daemon_enable="YES"
+google_instance_setup_enable="YES"
+google_ip_forwarding_daemon_enable="YES"
+google_network_setup_enable="YES"
 EOF
   
   cat << EOF > boot/loader.conf
-autoboot_delay="2"
+autoboot_delay="4"
+# the TSC timecounter sucks on GCE, so let it pick one of the ACPI timecounters
+machdep.disable_tsc=1
 hw.memtest.tests="0"
 console="comconsole"
+loader_logo="beastie"
 hw.vtnet.mq_disable=1
 aesni_load="YES"
+# nvme and nvd modules are used with local SSD in NVME mode, if attached.
 #nvme_load="YES"
-zfs_load="YES"
 EOF
   
   cat << EOF >> etc/hosts
@@ -150,7 +167,7 @@ restrict default ignore
 
 restrict -6 ::1
 restrict 127.0.0.1
-restrict 127.127.1.0
+restrict metadata.google.internal
 EOF
   
   cat << EOF >> etc/ssh/sshd_config
@@ -167,7 +184,6 @@ EOF
 EOF
   
   cat << EOF >> etc/sysctl.conf
-kern.timecounter.hardware=ACPI-fast
 net.inet.icmp.drop_redirect=1
 net.inet.ip.redirect=0
 net.inet.tcp.blackhole=2
@@ -175,7 +191,8 @@ net.inet.udp.blackhole=1
 kern.ipc.somaxconn=1024
 EOF
   
-  sed -E -i '' 's/^([^#].*[[:space:]])on/\1off/' etc/ttys
+  # turn off all virtual ttys and just leave the serial ones.
+  sed -E -i '.dist' 's/^([^#].*[[:space:]])on /\1off/' etc/ttys
   
   touch ./firstboot
 }
@@ -232,4 +249,4 @@ echo "Now run:"
 echo
 echo gcloud auth login
 echo gsutil cp ${BUCKETFILE} gs://${MYBUCKET}
-echo gcutil addimage ${IMAGENAME} gs://${MYBUCKET}/${BUCKETFILE}
+echo gcloud compute images create ${IMAGENAME} --description="FreeBSD ${VERSION}" --family=${IMAGEFAMILY} --source-uri=https://storage.googleapis.com/${MYBUCKET}/${BUCKETFILE}
