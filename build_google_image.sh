@@ -175,10 +175,6 @@ EOF
   
   cat << EOF >> etc/ssh/sshd_config
 ChallengeResponseAuthentication no
-X11Forwarding no
-AcceptEnv LANG
-Ciphers aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,aes128-cbc,3des-cbc
-#AllowAgentForwarding no
 ClientAliveInterval 420
 EOF
   
